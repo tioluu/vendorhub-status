@@ -1,12 +1,16 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, Injector, afterNextRender, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { CheckResult, CheckState } from './check';
-import { ENDPOINT_GROUPS, Endpoint } from './endpoints';
-import { ENVIRONMENTS, EnvId, Environment } from './environments';
-import { FullTest } from './full-test';
-import { HealthChecks, Overall } from './health-checks';
+import { ENDPOINT_GROUPS, EndpointGroup } from './endpoints';
+import { ENVIRONMENTS, Environment } from './environments';
+import { Overall } from './health-checks';
+import { StatusBoard } from './status-board';
+import { Summary } from './summary';
+
+type View = 'summary' | 'details';
 
 const REFRESH_MS = 30_000;
+const VIEW_KEY = 'vendorhub-status:view';
 
 const OVERALL_LABELS: Record<Overall, string> = {
   checking: 'Checking the API…',
@@ -27,37 +31,45 @@ const STATE_LABELS: Record<CheckState, string> = {
 
 @Component({
   selector: 'app-root',
-  imports: [DatePipe],
+  imports: [DatePipe, Summary],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App {
+  protected readonly board = inject(StatusBoard);
+  private readonly injector = inject(Injector);
+
   protected readonly environments = ENVIRONMENTS;
   protected readonly groups = ENDPOINT_GROUPS;
   protected readonly overallLabels = OVERALL_LABELS;
   protected readonly stateLabels = STATE_LABELS;
+  protected readonly groupAnchor = groupAnchor;
   protected readonly selected = signal<Environment>(ENVIRONMENTS[0]);
-
-  protected readonly checks = Object.fromEntries(
-    ENVIRONMENTS.map((env) => [env.id, new HealthChecks(env)]),
-  ) as Record<EnvId, HealthChecks>;
-
-  /** The full test writes data, so read-only environments don't get one. */
-  protected readonly tests = Object.fromEntries(
-    ENVIRONMENTS.filter((env) => !env.readOnly).map((env) => [env.id, new FullTest(env)]),
-  ) as Partial<Record<EnvId, FullTest>>;
+  protected readonly view = signal<View>(savedView());
 
   constructor() {
-    const checkAll = () => ENVIRONMENTS.forEach((env) => this.checks[env.id].checkAll());
-    checkAll();
-    const timer = setInterval(checkAll, REFRESH_MS);
+    this.board.checkAll();
+    const timer = setInterval(() => this.board.checkAll(), REFRESH_MS);
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
   }
 
-  protected resultFor(env: Environment, ep: Endpoint): CheckResult {
-    if (ep.probe) return this.checks[env.id].result(ep);
-    const test = this.tests[env.id];
-    return test ? test.result(ep) : { state: 'blocked' };
+  protected setView(view: View): void {
+    this.view.set(view);
+    try {
+      localStorage.setItem(VIEW_KEY, view);
+    } catch {
+      // Storage can be blocked; the page then just opens on Summary next time.
+    }
+  }
+
+  /** Shows one group on one environment in Details. The summary grid calls this. */
+  protected openGroup(env: Environment, group: EndpointGroup): void {
+    this.selected.set(env);
+    this.setView('details');
+    afterNextRender(
+      () => document.getElementById(groupAnchor(group))?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      { injector: this.injector },
+    );
   }
 
   protected detail(env: Environment, result: CheckResult): string {
@@ -74,5 +86,17 @@ export class App {
       default:
         return '';
     }
+  }
+}
+
+function groupAnchor(group: EndpointGroup): string {
+  return `group-${group.name.toLowerCase()}`;
+}
+
+function savedView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'details' ? 'details' : 'summary';
+  } catch {
+    return 'summary';
   }
 }

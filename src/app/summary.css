@@ -1,0 +1,117 @@
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.head h2 {
+  margin: 0 auto 0 0;
+}
+
+.list {
+  overflow: hidden;
+}
+
+/* Fixed layout so the environment columns are equal and every pill sits at the same x. */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+th {
+  font-weight: 500;
+  text-align: left;
+}
+
+thead th {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+thead th:first-child {
+  width: 130px;
+}
+
+thead code {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+tbody tr {
+  border-top: 1px solid var(--border);
+}
+
+tbody th {
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+td {
+  padding: 0;
+}
+
+/*
+ * The whole cell is the button, so a click anywhere in it opens Details. Pill on top and counts
+ * underneath, like the rows in Details, so the counts get the full cell width.
+ */
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  text-align: left;
+  white-space: normal;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.cell:hover {
+  background: var(--bg);
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.cell .badge {
+  width: 96px;
+}
+
+.caption {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.count {
+  margin-left: 6px;
+  padding: 1px 9px;
+  font: 500 13px/1.5 var(--font-sans);
+  vertical-align: middle;
+  color: color-mix(in srgb, var(--error) 75%, var(--text));
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border-radius: 999px;
+}
+
+h2 + .hint {
+  margin-top: 0;
+}
+
+@media (max-width: 560px) {
+  thead th:first-child {
+    width: 92px;
+  }
+
+  thead code {
+    display: none;
+  }
+}

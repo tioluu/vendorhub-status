@@ -4,114 +4,141 @@
     <h1>API status</h1>
   </header>
 
-  <nav class="envs" aria-label="Environment">
-    @for (env of environments; track env.id) {
+  <div class="toolbar">
+    <div class="switch" role="group" aria-label="View">
       <button
         type="button"
-        class="env"
-        [class.active]="env === selected()"
-        [attr.aria-pressed]="env === selected()"
-        [attr.data-state]="checks[env.id].overall()"
-        (click)="selected.set(env)"
+        [class.active]="view() === 'summary'"
+        [attr.aria-pressed]="view() === 'summary'"
+        (click)="setView('summary')"
       >
-        <span class="dot"></span>
-        {{ env.name }}
-        <code>{{ env.target }}</code>
+        Summary
       </button>
-    }
-  </nav>
-
-  @let env = selected();
-  @let health = checks[env.id];
-  @let test = tests[env.id];
-
-  <section class="card" [attr.data-state]="health.overall()">
-    <span class="dot"></span>
-    <div>
-      <p class="card-title">{{ overallLabels[health.overall()] }}</p>
-      <p class="card-sub">
-        @if (health.overall() === 'offline') {
-          Nothing is answering on {{ env.target }}.
-        } @else if (health.lastChecked(); as checked) {
-          {{ health.passing() }} of {{ health.total() }} read-only checks passing ·
-          {{ checked | date: 'HH:mm:ss' }}
-        } @else {
-          Running the first checks.
-        }
-      </p>
+      <button
+        type="button"
+        [class.active]="view() === 'details'"
+        [attr.aria-pressed]="view() === 'details'"
+        (click)="setView('details')"
+      >
+        Details
+      </button>
     </div>
-    <button type="button" (click)="health.checkAll()" [disabled]="health.checking()">
-      {{ health.checking() ? 'Checking…' : 'Check again' }}
-    </button>
-  </section>
 
-  @if (health.overall() === 'offline') {
-    <p class="hint">Start it with <code>{{ env.startCommand }}</code></p>
-  }
+    @if (view() === 'details') {
+      <nav class="envs" aria-label="Environment">
+        @for (env of environments; track env.id) {
+          <button
+            type="button"
+            class="env"
+            [class.active]="env === selected()"
+            [attr.aria-pressed]="env === selected()"
+            [attr.data-state]="board.checks[env.id].overall()"
+            (click)="selected.set(env)"
+          >
+            <span class="dot"></span>
+            {{ env.name }}
+            <code>{{ env.target }}</code>
+          </button>
+        }
+      </nav>
+    }
+  </div>
 
-  @if (test) {
-    <section class="card">
+  @if (view() === 'summary') {
+    <app-summary (open)="openGroup($event.env, $event.group)" />
+  } @else {
+    @let env = selected();
+    @let health = board.checks[env.id];
+    @let test = board.tests[env.id];
+
+    <section class="card" [attr.data-state]="health.overall()">
+      <span class="dot"></span>
       <div>
-        <p class="card-title">Full test</p>
+        <p class="card-title">{{ overallLabels[health.overall()] }}</p>
         <p class="card-sub">
-          @if (test.lastRun(); as ran) {
-            {{ test.passed() }} of {{ test.total }} steps passed · {{ ran | date: 'HH:mm:ss' }}
+          @if (health.overall() === 'offline') {
+            Nothing is answering on {{ env.target }}.
+          } @else if (health.lastChecked(); as checked) {
+            {{ health.passing() }} of {{ health.total() }} read-only checks passing ·
+            {{ checked | date: 'HH:mm:ss' }}
           } @else {
-            Signs up a throwaway vendor, creates a store, category and product, edits them, then
-            deletes it all again.
+            Running the first checks.
           }
         </p>
       </div>
-      <button
-        type="button"
-        (click)="test.run()"
-        [disabled]="test.running() || health.overall() === 'offline'"
-      >
-        {{ test.running() ? 'Running…' : 'Run full test' }}
+      <button type="button" (click)="health.checkAll()" [disabled]="health.checking()">
+        {{ health.checking() ? 'Checking…' : 'Check again' }}
       </button>
     </section>
 
-    @if (test.leftovers().length > 0) {
+    @if (health.overall() === 'offline') {
+      <p class="hint">Start it with <code>{{ env.startCommand }}</code></p>
+    }
+
+    @if (test) {
+      <section class="card">
+        <div>
+          <p class="card-title">Full test</p>
+          <p class="card-sub">
+            @if (test.lastRun(); as ran) {
+              {{ test.passed() }} of {{ test.total }} steps passed · {{ ran | date: 'HH:mm:ss' }}
+            } @else {
+              Signs up a throwaway vendor, creates a store, category and product, edits them, then
+              deletes it all again.
+            }
+          </p>
+        </div>
+        <button
+          type="button"
+          (click)="test.run()"
+          [disabled]="test.running() || health.overall() === 'offline'"
+        >
+          {{ test.running() ? 'Running…' : 'Run full test' }}
+        </button>
+      </section>
+
+      @if (test.leftovers().length > 0) {
+        <p class="hint">
+          Left behind in {{ env.name }}: {{ test.leftovers().join(', ') }}.
+          @if (env.resetCommand) {
+            Wipe it any time with <code>{{ env.resetCommand }}</code>
+          }
+        </p>
+      }
+    } @else {
       <p class="hint">
-        Left behind in {{ env.name }}: {{ test.leftovers().join(', ') }}.
-        @if (env.resetCommand) {
-          Wipe it any time with <code>{{ env.resetCommand }}</code>
-        }
+        {{ env.name }} is read-only, so only the GET checks run here. Everything else is tested on dev.
       </p>
     }
-  } @else {
-    <p class="hint">
-      {{ env.name }} is read-only, so only the GET checks run here. Everything else is tested on dev.
-    </p>
-  }
 
-  @for (group of groups; track group.name) {
-    <section class="group">
-      <h2>{{ group.name }}</h2>
-      <ul class="list">
-        @for (ep of group.endpoints; track ep.id) {
-          @let result = resultFor(env, ep);
-          <li class="row">
-            <span class="method">{{ ep.method }}</span>
-            <div>
-              <code class="path">{{ ep.path }}</code>
-              <p class="desc">
-                {{ ep.description }}
-                @if (ep.auth) {
-                  <span class="tag">Login required</span>
+    @for (group of groups; track group.name) {
+      <section class="group" [id]="groupAnchor(group)">
+        <h2>{{ group.name }}</h2>
+        <ul class="list">
+          @for (ep of group.endpoints; track ep.id) {
+            @let result = board.resultFor(env, ep);
+            <li class="row">
+              <span class="method">{{ ep.method }}</span>
+              <div>
+                <code class="path">{{ ep.path }}</code>
+                <p class="desc">
+                  {{ ep.description }}
+                  @if (ep.auth) {
+                    <span class="tag">Login required</span>
+                  }
+                </p>
+                @if (result.message; as message) {
+                  <p class="note" [class.error]="result.state === 'failing'">{{ message }}</p>
                 }
-              </p>
-              @if (result.message; as message) {
-                <p class="note" [class.error]="result.state === 'failing'">{{ message }}</p>
-              }
-            </div>
-            <div class="state">
-              <span class="badge" [attr.data-state]="result.state">{{ stateLabels[result.state] }}</span>
-              <span class="meta">{{ detail(env, result) }}</span>
-            </div>
-          </li>
-        }
-      </ul>
-    </section>
+              </div>
+              <div class="state">
+                <span class="badge" [attr.data-state]="result.state">{{ stateLabels[result.state] }}</span>
+                <span class="meta">{{ detail(env, result) }}</span>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    }
   }
 </main>

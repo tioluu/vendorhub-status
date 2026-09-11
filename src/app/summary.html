@@ -1,0 +1,96 @@
+<div class="head">
+  <h2>Overview</h2>
+  <button type="button" (click)="board.checkAll()">Check again</button>
+  <button type="button" (click)="copy()">{{ copyLabel() }}</button>
+</div>
+
+<div class="list">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Group</th>
+        @for (env of environments; track env.id) {
+          <th scope="col">{{ env.name }} <code>{{ env.target }}</code></th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (group of groups; track group.name) {
+        <tr>
+          <th scope="row">{{ group.name }}</th>
+          @for (env of environments; track env.id) {
+            @let summary = board.summarize(env, group);
+            <td>
+              <button
+                type="button"
+                class="cell"
+                [attr.aria-label]="group.name + ' on ' + env.name + ': ' + labels[summary.state] + '. Show details.'"
+                (click)="open.emit({ env, group })"
+              >
+                <span class="badge" [attr.data-state]="summary.state">{{ labels[summary.state] }}</span>
+                <span class="meta">{{ countsText(summary) }}</span>
+              </button>
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+@for (env of environments; track env.id) {
+  @let test = board.tests[env.id];
+  @if (test) {
+    <p class="caption">
+      @if (test.lastRun(); as ran) {
+        Full test on {{ env.name }}: {{ test.passed() }} of {{ test.total }} steps passed at
+        {{ ran | date: 'HH:mm' }}.
+      } @else {
+        The full test hasn't run on {{ env.name }} yet. You can run it from Details.
+      }
+    </p>
+  }
+}
+
+@let problemCount = board.problems().length + board.offline().length;
+<section class="group">
+  <h2>
+    Needs attention
+    @if (problemCount > 0) {
+      <span class="count">{{ problemCount }}</span>
+    }
+  </h2>
+
+  @if (!board.ready()) {
+    <p class="hint">Running the first checks…</p>
+  } @else if (problemCount === 0) {
+    <p class="hint">Nothing needs attention.</p>
+  }
+
+  @for (env of board.offline(); track env.id) {
+    <p class="hint">{{ env.name }} is offline. Start it with <code>{{ env.startCommand }}</code></p>
+  }
+
+  @if (board.problems().length > 0) {
+    <ul class="list">
+      @for (problem of board.problems(); track problem.env.id + problem.endpoint.id) {
+        <li class="row">
+          <span class="method">{{ problem.endpoint.method }}</span>
+          <div>
+            <code class="path">{{ problem.endpoint.path }}</code>
+            <p class="desc">{{ problem.endpoint.description }}</p>
+            @if (problem.result.message; as message) {
+              <p class="note error">{{ message }}</p>
+            }
+          </div>
+          <div class="state">
+            <span class="badge" [attr.data-state]="problem.result.state">
+              {{ problem.result.state === 'failing' ? 'Failed' : 'Unreachable' }}
+            </span>
+            <span class="meta">{{ problemMeta(problem) }}</span>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>
